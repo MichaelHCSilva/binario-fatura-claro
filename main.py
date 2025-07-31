@@ -1,9 +1,13 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
-from pages.login_page import LoginPage
+from dotenv import load_dotenv
+from pages.login_page_claro import LoginPage
+from pages.fatura_page_claro import FaturaPage
 
 def main():
+    load_dotenv()  # ✅ carrega as variáveis de ambiente (.env)
+
     options = Options()
     options.binary_location = "/usr/bin/google-chrome"
 
@@ -37,8 +41,18 @@ def main():
         login_page = LoginPage(driver)
         login_page.open_login_page()
         login_page.click_entrar()
+        login_page.selecionar_minha_claro_residencial()
+        login_page.preencher_login_usuario()
+        login_page.clicar_continuar()
+        login_page.preencher_senha()              
+        login_page.clicar_botao_acessar()
+        
+        # ✅ Após login, acessa contratos e baixa faturas
+        fatura_page = FaturaPage(driver)
+        fatura_page.selecionar_contratos()
+        
     finally:
-        input("⏸ Pressione Enter para encerrar...")  # para manter o navegador aberto
+        input("⏸ Pressione Enter para encerrar...") 
         driver.quit()
 
 if __name__ == "__main__":
