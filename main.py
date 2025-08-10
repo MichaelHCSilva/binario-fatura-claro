@@ -5,7 +5,7 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from dotenv import load_dotenv
 from pages.loginClaro import LoginPage
-from pages.faturaClaro import FaturaPage  
+from pages.faturaClaro import FaturaPage
 
 def main():
     load_dotenv()  
@@ -49,8 +49,8 @@ def main():
             print("Sessão já ativa, pulando login.")
 
         fatura_page = FaturaPage(driver)
-        fatura_page.selecionar_contratos()
-
+        fatura_page.selecionar_contrato_ativo()
+        
     finally:
         input("⏸ Pressione Enter para encerrar...")
         driver.quit()
