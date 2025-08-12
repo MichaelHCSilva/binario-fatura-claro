@@ -1,8 +1,11 @@
-#faturaClaro.py
+#faturaClaro
+import logging
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from pages.contractClaro import ContratoCard
+
+logger = logging.getLogger(__name__)
 
 class FaturaPage:
     def __init__(self, driver, timeout=30):
@@ -11,50 +14,56 @@ class FaturaPage:
 
     def _aguardar_renderizacao_contratos(self):
         """
-        Aguarda até que todos os contratos tenham texto visível (evita elementos vazios).
+        Aguarda até que todos os contratos tenham texto visível.
         """
-        print("Aguardando renderização completa dos contratos...")
+        logger.info("Aguardando renderização completa dos contratos...")
         self.wait.until(
             lambda d: all(
-                el.text.strip() != "" 
+                el.text.strip() != ""
                 for el in d.find_elements(By.CLASS_NAME, "contract")
             )
         )
-        print("Todos os contratos possuem texto carregado.")
+        logger.info("Todos os contratos possuem texto carregado.")
 
-    def selecionar_contrato_ativo(self):
-        """
-        Seleciona o primeiro contrato ativo (não encerrado) encontrado.
-        """
+    def processar_todos_contratos_ativos(self, callback_processamento):
         try:
-            print("Aguardando a página de contratos carregar...")
-            contratos_elements = self.wait.until(
-                EC.presence_of_all_elements_located((By.CLASS_NAME, "contract"))
-            )
+            logger.info("Aguardando a página de contratos carregar...")
 
-            # Espera extra para garantir que o texto de todos contratos foi carregado
-            self._aguardar_renderizacao_contratos()
+            while True:
+                contratos_elements = self.wait.until(
+                    EC.presence_of_all_elements_located((By.CLASS_NAME, "contract"))
+                )
+                self._aguardar_renderizacao_contratos()
 
-            print(f"Encontrados {len(contratos_elements)} contratos.")
+                encontrou_ativo = False
+                total_contratos = len(contratos_elements)
 
-            for i, contrato_element in enumerate(contratos_elements, start=1):
-                card = ContratoCard(self.driver, contrato_element)
+                for i in range(total_contratos):
+                    # Recarrega a lista sempre que voltar para esta página
+                    contratos_elements = self.wait.until(
+                        EC.presence_of_all_elements_located((By.CLASS_NAME, "contract"))
+                    )
+                    self._aguardar_renderizacao_contratos()
 
-                if card.esta_encerrado():
-                    print(f"Verificação de 'Contrato encerrado': True")
-                    print(f"Contrato {i} encerrado. Pulando...")
-                    continue
+                    contrato_element = contratos_elements[i]
+                    card = ContratoCard(self.driver, contrato_element)
 
-                print(f"Verificação de 'Contrato encerrado': False")
-                print(f"Contrato {i} é ativo.")
-                if card.clicar_selecionar():
-                    print("Contrato ativo selecionado com sucesso.")
-                    return True
-                else:
-                    print(f"Falha ao selecionar contrato {i}. Pulando...")
+                    if card.esta_encerrado():
+                        logger.info(f"Contrato {i+1} encerrado. Pulando...")
+                        continue
 
-            print("Nenhum contrato ativo foi encontrado.")
-            return False
+                    numero_contrato = card.obter_numero_contrato()
+                    logger.info(f"Contrato {i+1} é ativo ({numero_contrato}).")
+
+                    if card.clicar_selecionar():
+                        logger.info(f"Contrato {numero_contrato} selecionado com sucesso.")
+                        callback_processamento(numero_contrato)
+                        self.driver.back()
+                        encontrou_ativo = True
+
+                if  not encontrou_ativo:
+                    logger.info("Nenhum contrato ativo encontrado. Encerrando busca.")
+                    break
+
         except Exception as e:
-            print(f"Erro ao selecionar contratos: {e}")
-            return False
+            logger.error(f"Erro ao processar contratos: {e}", exc_info=True)
