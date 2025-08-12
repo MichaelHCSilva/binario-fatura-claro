@@ -1,9 +1,12 @@
+#faturaPendentes.py
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import StaleElementReferenceException
 from datetime import datetime, timedelta
 from typing import Tuple, List
 import locale
+import time
 
 # Configurar locale para português do Brasil para obter nome do mês em pt_BR
 locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
@@ -117,3 +120,45 @@ class FaturasPendentesPage:
                 return
 
         print("Nenhuma fatura pendente encontrada nos meses atual e anterior.")
+    
+    def verificar_mes_anterior_e_voltar_contratos(self) -> None:
+        """
+        Após o download, retorna para a lista de faturas, verifica o status do mês anterior
+        e, se estiver pago, retorna para a página de seleção de contratos.
+        """
+        try:
+            print("Tentando voltar para a lista de faturas...")
+            
+            # Usar o método `back()` do navegador é mais robusto para retornar
+            self.driver.back()
+            
+            # Esperar a lista de faturas carregar novamente
+            self.wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "invoice-list-item")))
+            print("Retorno para a lista de faturas bem-sucedido.")
+
+            print("Verificando status da fatura do mês anterior...")
+            (mes_atual, ano_atual), (mes_anterior, ano_anterior) = self._obter_mes_ano_atual_e_anterior()
+            
+            # Localizar o item da lista correspondente ao mês anterior
+            xpath_fatura_anterior = (
+                f"//li[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '{mes_anterior} {ano_anterior}')]"
+            )
+            fatura_anterior_element = self.wait.until(EC.presence_of_element_located((By.XPATH, xpath_fatura_anterior)))
+
+            status_tag = fatura_anterior_element.find_element(By.CLASS_NAME, "status-tag")
+            status_texto = self._normalizar_texto(status_tag.text)
+
+            if status_texto == 'paga':
+                print(f"Fatura de {mes_anterior} {ano_anterior} está paga. Retornando para a lista de contratos...")
+                
+                # Clicar no link do contrato para voltar
+                contrato_link = self.wait.until(EC.element_to_be_clickable((By.XPATH, "//p[contains(text(), 'Contrato:')]")))
+                self.driver.execute_script("arguments[0].click();", contrato_link)
+                
+                print("Retorno para a página de contratos com sucesso.")
+            else:
+                print(f"Fatura de {mes_anterior} {ano_anterior} não está paga. Permanecendo na lista de faturas.")
+
+        except Exception as e:
+            print(f"Erro ao verificar fatura anterior e voltar para contratos: {e}")
+            pass

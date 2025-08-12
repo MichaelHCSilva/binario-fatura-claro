@@ -1,3 +1,4 @@
+#main.py
 import logging
 import sys
 import os
@@ -85,6 +86,10 @@ def main():
         # Aqui deve passar o número do contrato, se necessário — ajuste conforme sua lógica
         numero_contrato = "123/456"  # exemplo, ajuste para capturar dinamicamente
         baixar_faturas(driver, LINUX_DOWNLOAD_DIR, WINDOWS_DOWNLOAD_DIR, numero_contrato)
+        
+        # --- NOVO CÓDIGO AQUI ---
+        faturas_pendentes_page.verificar_mes_anterior_e_voltar_contratos()
+        # --- FIM DO NOVO CÓDIGO ---
 
     except Exception as e:
         logger.error(f"Erro geral na execução: {e}", exc_info=True)
