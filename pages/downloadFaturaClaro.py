@@ -1,70 +1,38 @@
-#downloadFaturaClaro.py
 import os
 import time
 import logging
-from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
-from utils.downloadUtils import garantir_diretorio, mover_e_copiar_arquivo, DOWNLOAD_DIR
+from utils.downloadUtils import mover_e_copiar_arquivo, DOWNLOAD_DIR
+from pages.faturasPendentes import FaturasPendentesPage
 
 logger = logging.getLogger(__name__)
 
-def baixar_faturas(driver, linux_download_dir, windows_download_dir, numero_contrato, timeout=60):
-    garantir_diretorio(linux_download_dir)
-    garantir_diretorio(windows_download_dir)
+class DownloadService:
+    def __init__(self, driver, faturas_pendentes_page: FaturasPendentesPage, timeout=60):
+        self.driver = driver
+        self.wait = WebDriverWait(driver, timeout)
+        self.faturas_pendentes_page = faturas_pendentes_page
 
-    wait = WebDriverWait(driver, timeout)
+    def baixar_faturas(self, numero_contrato: str, linux_download_dir: str, windows_download_dir: str):
+        """
+        Orquestra o processo de download da fatura.
+        """
+        logger.info(f"Iniciando processo de download para o contrato {numero_contrato}...")
 
-    try:
-        links_download = wait.until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, 'a[data-testid="download-invoice"]'))
-        )
-    except Exception as e:
-        logger.error(f"Não foi possível localizar links para download de faturas: {e}", exc_info=True)
-        return
+        nome_arquivo = self.faturas_pendentes_page.selecionar_e_baixar_fatura()
 
-    if not links_download:
-        logger.warning("Nenhum link para download encontrado na página.")
-        return
-
-    logger.info(f"Encontrados {len(links_download)} links para download de faturas.")
-
-    for idx, link in enumerate(links_download, start=1):
-        try:
-            nome_arquivo = link.get_attribute("download")
-            if not nome_arquivo or not nome_arquivo.strip():
-                nome_arquivo = f"fatura_claro_{idx}.pdf"
-
-            logger.info(f"Baixando fatura {idx}: {nome_arquivo}")
-
-            arquivo_padrao = os.path.join(DOWNLOAD_DIR, nome_arquivo)
-            if os.path.exists(arquivo_padrao):
-                try:
-                    os.remove(arquivo_padrao)
-                    logger.info(f"Arquivo antigo removido no padrão: {arquivo_padrao}")
-                except Exception as e:
-                    logger.warning(f"Não foi possível remover arquivo antigo {arquivo_padrao}: {e}")
-
-            # Clicar no link para iniciar o download
-            driver.execute_script("arguments[0].click();", link)
-
-            # Esperar o arquivo iniciar o download (existir na pasta, ou arquivo temporário)
-            tempo_espera = 0
-            intervalo_espera = 1
-            while tempo_espera < timeout:
-                if (os.path.exists(arquivo_padrao) or
-                    os.path.exists(arquivo_padrao + ".crdownload") or
-                    os.path.exists(arquivo_padrao + ".part")):
-                    logger.info(f"Download do arquivo {nome_arquivo} detectado.")
-                    break
-                time.sleep(intervalo_espera)
-                tempo_espera += intervalo_espera
-            else:
-                logger.warning(f"Timeout esperando download do arquivo {nome_arquivo} iniciar.")
-
-            # Agora mover e copiar arquivo para os diretórios destino
+        if nome_arquivo:
+            # Garante um nome de arquivo padrão se o atributo 'download' estiver vazio
+            if not nome_arquivo:
+                nome_arquivo = f"fatura_claro_{numero_contrato}.pdf"
+            
+            logger.info(f"Nome do arquivo para download: {nome_arquivo}")
+            
+            # Mover e copiar o arquivo após o download ser concluído
             mover_e_copiar_arquivo(nome_arquivo, linux_download_dir, windows_download_dir, numero_contrato)
+            
+            logger.info("Download concluído e arquivo movido com sucesso.")
 
-        except Exception as e:
-            logger.error(f"Erro ao tentar baixar fatura {idx}: {e}", exc_info=True)
+        else:
+            logger.info("Não foi possível iniciar o download da fatura. Nenhuma fatura pendente foi encontrada.")
