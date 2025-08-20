@@ -1,4 +1,4 @@
-#faturaPage.py
+# faturaPage.py
 import logging
 import time
 from selenium.webdriver.common.by import By
@@ -15,7 +15,7 @@ from typing import Callable, Any
 logger = logging.getLogger(__name__)
 
 class FaturaPage:
-    def __init__(self, driver, timeout=20):
+    def __init__(self, driver, timeout=15):
         self.driver = driver
         self.wait = WebDriverWait(driver, timeout)
     
@@ -50,18 +50,18 @@ class FaturaPage:
             logger.info("Botão de próxima página não encontrado ou desabilitado.")
             return False
 
-    def _voltar_para_pagina_contratos(self):
+    def _voltar_para_pagina_contratos(self, contratos_url: str):
         try:
             self.driver.back()
             self._aguardar_renderizacao_contratos()
             logger.info("Retorno à página de contratos via 'driver.back()' bem-sucedido.")
         except (TimeoutException, Exception):
             logger.warning("Falha ao usar 'driver.back()'. Tentando retorno completo via URL...")
-            self.driver.get("https://minhaclaroresidencial.claro.com.br/empresas/contratos")
+            self.driver.get(contratos_url)
             self._aguardar_renderizacao_contratos()
             logger.info("Retorno à página de contratos via URL bem-sucedido.")
 
-    def processar_todos_contratos_ativos(self, callback_processamento: Callable[[str], Any]):
+    def processar_todos_contratos_ativos(self, callback_processamento: Callable[[str], Any], contratos_url: str):
 
         pagina_atual = 1
         
@@ -94,7 +94,7 @@ class FaturaPage:
                         logger.info(f"Contrato {card.obter_numero_contrato()} selecionado. Prosseguindo para download.")
                         callback_processamento(card.obter_numero_contrato())
                         
-                        self._voltar_para_pagina_contratos()
+                        self._voltar_para_pagina_contratos(contratos_url)
                         
                         for _ in range(pagina_atual - 1):
                             self._avancar_para_proxima_pagina()
@@ -102,7 +102,7 @@ class FaturaPage:
                 except Exception as e:
                     logger.error(f"Falha ao processar um contrato. Tentando continuar o processo. Erro: {e}", exc_info=True)
                     try:
-                        self._voltar_para_pagina_contratos()
+                        self._voltar_para_pagina_contratos(contratos_url)
                         for _ in range(pagina_atual - 1):
                             self._avancar_para_proxima_pagina()
                     except Exception as fallback_e:

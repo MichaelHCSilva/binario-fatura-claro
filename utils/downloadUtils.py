@@ -1,12 +1,15 @@
-#downloadUtils.py
+# downloadUtils.py
 import os
 import time
 import shutil
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-DOWNLOAD_DIR = "/home/allancdev/Downloads"
+CHROME_DOWNLOAD_DIR = os.getenv("CHROME_DOWNLOAD_DIR")
 
 def garantir_diretorio(diretorio: str) -> None:
     try:
@@ -18,8 +21,7 @@ def garantir_diretorio(diretorio: str) -> None:
     except Exception as e:
         logger.error(f"Erro ao garantir diretório {diretorio}: {e}", exc_info=True)
 
-def esperar_arquivo_download_concluido(caminho_arquivo: str, timeout: int = 60) -> bool:
-
+def esperar_arquivo_download_concluido(caminho_arquivo: str, timeout: int = 30) -> bool:
     tempo_espera = 0
     intervalo_checagem = 1
     logger.info(f"Aguardando arquivo: {caminho_arquivo}")
@@ -41,8 +43,11 @@ def esperar_arquivo_download_concluido(caminho_arquivo: str, timeout: int = 60) 
     return False
 
 def mover_e_copiar_arquivo(nome_arquivo_original: str, linux_dir: str, windows_dir: str, numero_contrato: str) -> None:
+    if CHROME_DOWNLOAD_DIR is None:
+        logger.error("A variável de ambiente 'CHROME_DOWNLOAD_DIR' não foi encontrada. Verifique o seu arquivo .env.")
+        return
 
-    origem = os.path.join(DOWNLOAD_DIR, nome_arquivo_original)
+    origem = os.path.join(CHROME_DOWNLOAD_DIR, nome_arquivo_original)
     destino_linux = os.path.join(linux_dir, nome_arquivo_original)
     destino_windows = os.path.join(windows_dir, nome_arquivo_original)
 

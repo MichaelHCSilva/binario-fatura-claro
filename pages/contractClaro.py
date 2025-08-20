@@ -12,10 +12,9 @@ class ContratoCard:
     def __init__(self, driver, card_element: WebElement):
         self.driver = driver
         self.card_element = card_element
-        self.wait = WebDriverWait(self.driver, 15)
+        self.wait = WebDriverWait(self.driver, 10)
 
     def esta_encerrado(self) -> bool:
-
         try:
             span_inativo = WebDriverWait(self.card_element, 2).until(
                 EC.presence_of_element_located((By.CSS_SELECTOR, "span.contract__infos-inactive"))
