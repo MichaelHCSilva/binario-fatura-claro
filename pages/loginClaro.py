@@ -5,7 +5,6 @@ from selenium.common.exceptions import TimeoutException
 import os
 import time
 
-
 class LoginPage:
     URL = "https://minhaclaro.claro.com.br/acesso-rapido/"
 
@@ -28,7 +27,6 @@ class LoginPage:
 
     def esta_logado(self):
         print("Verificando se usuário está logado...")
-        # Use timeout menor para checagem rápida
         short_wait = WebDriverWait(self.driver, 5)
         try:
             start = time.time()
@@ -52,7 +50,7 @@ class LoginPage:
 
     def selecionar_minha_claro_residencial(self):
         try:
-            print("🔍 Procurando opção 'Minha Claro Residencial'...")
+            print("Procurando opção 'Minha Claro Residencial'...")
             xpath = "//a[contains(@class, 'mdn-Shortcut') and .//p[text()='Minha Claro Residencial']]"
             link = self.wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
             self.driver.execute_script("arguments[0].scrollIntoView(true);", link)

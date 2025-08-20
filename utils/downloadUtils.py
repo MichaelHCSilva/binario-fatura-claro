@@ -6,11 +6,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Diretório padrão do Chrome (ajuste conforme seu ambiente)
 DOWNLOAD_DIR = "/home/allancdev/Downloads"
 
 def garantir_diretorio(diretorio: str) -> None:
-    """Garante que o diretório exista, cria caso não exista."""
     try:
         if not os.path.exists(diretorio):
             os.makedirs(diretorio)
@@ -21,16 +19,12 @@ def garantir_diretorio(diretorio: str) -> None:
         logger.error(f"Erro ao garantir diretório {diretorio}: {e}", exc_info=True)
 
 def esperar_arquivo_download_concluido(caminho_arquivo: str, timeout: int = 60) -> bool:
-    """
-    Espera até que o arquivo de download esteja concluído.
-    Verifica se o arquivo existe e não possui arquivos temporários do Chrome (.crdownload, .part).
-    """
+
     tempo_espera = 0
     intervalo_checagem = 1
     logger.info(f"Aguardando arquivo: {caminho_arquivo}")
     while tempo_espera < timeout:
         try:
-            # Arquivo existe e não está em download temporário
             if os.path.isfile(caminho_arquivo) and not (
                 os.path.exists(caminho_arquivo + ".crdownload") or
                 os.path.exists(caminho_arquivo + ".part")
@@ -47,10 +41,7 @@ def esperar_arquivo_download_concluido(caminho_arquivo: str, timeout: int = 60) 
     return False
 
 def mover_e_copiar_arquivo(nome_arquivo_original: str, linux_dir: str, windows_dir: str, numero_contrato: str) -> None:
-    """
-    Move o arquivo da pasta padrão de download para o diretório Linux e depois copia para o diretório Windows.
-    Mantém o nome original do arquivo.
-    """
+
     origem = os.path.join(DOWNLOAD_DIR, nome_arquivo_original)
     destino_linux = os.path.join(linux_dir, nome_arquivo_original)
     destino_windows = os.path.join(windows_dir, nome_arquivo_original)

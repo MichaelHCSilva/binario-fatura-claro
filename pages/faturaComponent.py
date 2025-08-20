@@ -12,9 +12,7 @@ class FaturaCard:
         self.wait = WebDriverWait(driver, 10)
 
     def esta_aguardando(self) -> bool:
-        """
-        Verifica se o status da fatura é 'Aguardando'.
-        """
+
         try:
             status_tag = self.card_element.find_element(By.CSS_SELECTOR, ".status-tag")
             return status_tag.text.strip() == "Aguardando"
@@ -22,9 +20,7 @@ class FaturaCard:
             return False
 
     def clicar_selecionar(self) -> bool:
-        """
-        Clica no botão 'Selecionar' da fatura.
-        """
+
         try:
             print("Fatura pendente encontrada. Tentando clicar em 'Selecionar'.")
             

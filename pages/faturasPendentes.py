@@ -3,14 +3,12 @@ import logging
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from typing import Tuple, List
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
+from typing import Tuple, List, Optional
 from datetime import datetime, timedelta
 import locale
-import time
 
 logger = logging.getLogger(__name__)
-
-# Configurar locale para português do Brasil
 locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 
 class FaturasPendentesPage:
@@ -36,27 +34,31 @@ class FaturasPendentesPage:
             f"and contains(., '{ano}')]"
         )
         try:
-            logger.info(f"Tentando localizar a aba do mês '{mes} {ano}'...")
+            logger.info(f"Tentando localizar a aba do mês '{mes.capitalize()} {ano}'...")
             aba_mes = self.wait.until(EC.element_to_be_clickable((By.XPATH, xpath_aba)))
+            
             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", aba_mes)
             self.wait.until(EC.element_to_be_clickable((By.XPATH, xpath_aba)))
             self.driver.execute_script("arguments[0].click();", aba_mes)
-            logger.info(f"Aba do mês '{mes} {ano}' clicada com sucesso.")
-            self.wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "invoice-list-item")))
+            
+            logger.info(f"Aba do mês '{mes.capitalize()} {ano}' clicada com sucesso.")
             return True
+        except TimeoutException:
+            logger.warning(f"Aba do mês '{mes.capitalize()} {ano}' não encontrada. Possivelmente não existe fatura para o período.")
+            return False
         except Exception as e:
-            logger.warning(f"Falha ao clicar na aba do mês '{mes} {ano}': {e}")
+            logger.error(f"Erro inesperado ao clicar na aba do mês '{mes.capitalize()} {ano}': {e}")
             return False
 
     def _buscar_faturas_pendentes(self, mes: str, ano: int) -> List:
         try:
-            faturas = self.wait.until(
-                EC.presence_of_all_elements_located((By.CLASS_NAME, "invoice-list-item"))
-            )
-        except Exception as e:
-            logger.error(f"Erro ao localizar faturas na aba '{mes} {ano}': {e}")
+            self.wait.until(EC.presence_of_all_elements_located((By.CLASS_NAME, "invoice-list-item")))
+        except TimeoutException:
+            logger.info(f"Nenhum item de fatura encontrado na aba '{mes.capitalize()} {ano}'.")
             return []
-
+        
+        faturas = self.driver.find_elements(By.CLASS_NAME, "invoice-list-item")
+        
         mes_ano_str = f"{mes} {ano}".lower()
         faturas_pendentes = []
         for fatura in faturas:
@@ -69,33 +71,33 @@ class FaturasPendentesPage:
 
                 if mes_ano_str in titulo and status_texto == 'aguardando':
                     faturas_pendentes.append(fatura)
+            except NoSuchElementException:
+                logger.warning("Elemento de título ou status não encontrado para uma das faturas. Ignorando.")
+                continue
             except Exception as e:
                 logger.warning(f"Erro ao verificar fatura: {e}")
+                continue
+        
         return faturas_pendentes
 
-    def selecionar_e_baixar_fatura(self) -> str or None:
-        """
-        Navega, localiza e baixa faturas pendentes dos meses atual e anterior.
-        Retorna o nome do arquivo se o download começar, ou None caso contrário.
-        """
+    def selecionar_e_baixar_fatura(self) -> Optional[str]:
+
         (mes_atual, ano_atual), (mes_anterior, ano_anterior) = self._obter_mes_ano_atual_e_anterior()
-        logger.info(f"Meses para verificação: {mes_atual} {ano_atual} e {mes_anterior} {ano_anterior}")
+        logger.info(f"Iniciando a busca por faturas pendentes para {mes_atual.capitalize()} {ano_atual} e {mes_anterior.capitalize()} {ano_anterior}.")
 
         for mes, ano in [(mes_atual, ano_atual), (mes_anterior, ano_anterior)]:
             if self._clicar_aba_mes(mes, ano):
                 faturas = self._buscar_faturas_pendentes(mes, ano)
+                
                 if faturas:
                     fatura_element = faturas[0]
                     try:
-                        logger.info(f"Fatura pendente encontrada para {mes} {ano}. Clicando em 'Selecionar'...")
+                        logger.info(f"Fatura pendente encontrada para {mes.capitalize()} {ano}. Clicando em 'Selecionar'...")
                         botao_selecionar = fatura_element.find_element(By.XPATH, ".//a[contains(text(), 'Selecionar')]")
                         self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", botao_selecionar)
-                        self.wait.until(EC.element_to_be_clickable(botao_selecionar))
-                        self.driver.execute_script("arguments[0].click();", botao_selecionar)
+                        self.wait.until(EC.element_to_be_clickable(botao_selecionar)).click()
                         
-                        logger.info("Fatura selecionada. Aguardando link de download...")
-                        
-                        # Espera de forma mais robusta pelo botão de download usando o 'data-testid'
+                        logger.info("Fatura selecionada. Aguardando botão de download...")
                         download_link = self.wait.until(
                             EC.presence_of_element_located((By.CSS_SELECTOR, '[data-testid="download-invoice"]'))
                         )
@@ -104,11 +106,20 @@ class FaturasPendentesPage:
                         nome_arquivo = download_link.get_attribute("download")
                         self.driver.execute_script("arguments[0].click();", download_link)
                         
+                        logger.info(f"Download iniciado para o arquivo: {nome_arquivo}")
                         return nome_arquivo
                     
-                    except Exception as e:
-                        logger.error(f"Falha ao selecionar ou baixar fatura de {mes} {ano}: {e}", exc_info=True)
+                    except TimeoutException:
+                        logger.error(f"O botão de download não apareceu após selecionar a fatura de {mes.capitalize()} {ano}. Possível problema na página ou lógica da aplicação.")
                         continue
-        
-        logger.info("Nenhuma fatura pendente encontrada nos meses atual e anterior.")
+                    except NoSuchElementException:
+                        logger.error(f"Botão 'Selecionar' ou 'Download' não encontrado para a fatura de {mes.capitalize()} {ano}.")
+                        continue
+                    except Exception as e:
+                        logger.error(f"Falha inesperada ao interagir com a fatura de {mes.capitalize()} {ano}: {e}", exc_info=True)
+                        continue
+                else:
+                    logger.info(f"Nenhuma fatura pendente encontrada para o mês de {mes.capitalize()} {ano}.")
+            
+        logger.info("Nenhuma fatura pendente encontrada nos meses atual e anterior. Finalizando a busca.")
         return None
